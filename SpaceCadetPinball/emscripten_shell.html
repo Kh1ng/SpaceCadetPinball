@@ -199,9 +199,13 @@
             align-items: center;
             justify-content: center;
             z-index: 100;
+            pointer-events: all;
         }
 
-        #auth-overlay.hidden { display: none; }
+        #auth-overlay.hidden {
+            display: none;
+            pointer-events: none;
+        }
 
         #auth-box {
             width: 280px;
@@ -314,8 +318,8 @@
         </div>
     </div>
 
-    <!-- Game window -->
-    <div class="window active" id="game-window" style="display:none;">
+    <!-- Game window (always in DOM so Emscripten canvas is accessible at init) -->
+    <div class="window active" id="game-window">
         <div class="titlebar">
             <span class="titlebar-title">3D Pinball for Windows - Space Cadet</span>
             <div class="titlebar-wincontrols">
@@ -451,7 +455,6 @@
 
         function startGame() {
             document.getElementById('auth-overlay').classList.add('hidden');
-            document.getElementById('game-window').style.display = '';
             document.getElementById('user-bar-name').textContent = _pinballUser;
         }
 

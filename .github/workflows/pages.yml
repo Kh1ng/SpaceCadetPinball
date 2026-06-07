@@ -24,8 +24,17 @@ jobs:
         uses: mymindstorm/setup-emsdk@v14
         with:
           version: 3.1.61
+          actions-cache-folder: .emsdk-cache
+
+      - name: Cache game data
+        id: cache-game
+        uses: actions/cache@v4
+        with:
+          path: game_resources
+          key: pinball-game-data-v1
 
       - name: Fetch game data
+        if: steps.cache-game.outputs.cache-hit != 'true'
         run: |
           sudo apt-get install -y p7zip-full
           curl -L "https://archive.org/download/3-d-pinball-for-windows.-7z/3D%20Pinball%20for%20Windows.7z" -o pinball.7z
