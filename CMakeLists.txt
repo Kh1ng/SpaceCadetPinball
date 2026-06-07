@@ -29,30 +29,42 @@ if(APPLE)
     list(APPEND SDL2_MIXER_PATH "${CMAKE_CURRENT_LIST_DIR}/Libs")
 endif()
 
-# SDL2main is not needed
-set(SDL2_BUILDING_LIBRARY ON)
-
-find_package(SDL2 REQUIRED)
-FIND_PACKAGE(SDL2_mixer REQUIRED)
-find_package(CURL REQUIRED)
-if(NOT APPLE)
-    find_package(OpenSSL REQUIRED)
-endif()
-
 # Bake leaderboard URL and HMAC secret into the binary at build time.
-# Override with: cmake -DLEADERBOARD_API_URL="https://..." -DLEADERBOARD_SECRET="..."
-set(LEADERBOARD_API_URL "" CACHE STRING "Base URL of the leaderboard API")
+set(LEADERBOARD_API_URL "https://pinball-api.coltonspurgin.tech" CACHE STRING "Base URL of the leaderboard API")
 set(LEADERBOARD_SECRET  "" CACHE STRING "HMAC-SHA256 shared secret")
-if(LEADERBOARD_API_URL)
-    add_compile_definitions(LEADERBOARD_API_URL="${LEADERBOARD_API_URL}")
-endif()
+add_compile_definitions(LEADERBOARD_API_URL="${LEADERBOARD_API_URL}")
 if(LEADERBOARD_SECRET)
     add_compile_definitions(LEADERBOARD_SECRET="${LEADERBOARD_SECRET}")
 endif()
 
-include_directories(${SDL2_INCLUDE_DIR} ${SDL2_MIXER_INCLUDE_DIR} ${CURL_INCLUDE_DIRS})
-if(NOT APPLE)
-    include_directories(${OPENSSL_INCLUDE_DIR})
+# SDL2main is not needed
+set(SDL2_BUILDING_LIBRARY ON)
+
+if(${CMAKE_SYSTEM_NAME} MATCHES "Emscripten")
+    set(USE_FLAGS "-s USE_SDL=2 -s USE_SDL_MIXER=2")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${USE_FLAGS}")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${USE_FLAGS}")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${USE_FLAGS}")
+    set(CMAKE_EXECUTABLE_SUFFIX .html)
+    set(SDL2_FOUND TRUE)
+    set(SDL2_INCLUDE_DIR "${EMSCRIPTEN_ROOT_PATH}/system/include/SDL2/")
+    set(SDL2_MIXER_INCLUDE_DIR "${EMSCRIPTEN_ROOT_PATH}/system/include/SDL2/")
+    set(SDL2_LIBRARIES "nul")
+else()
+    find_package(SDL2 REQUIRED)
+    find_package(SDL2_mixer REQUIRED)
+    find_package(CURL REQUIRED)
+    if(NOT APPLE)
+        find_package(OpenSSL REQUIRED)
+    endif()
+endif()
+
+include_directories(${SDL2_INCLUDE_DIR} ${SDL2_MIXER_INCLUDE_DIR})
+if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Emscripten")
+    include_directories(${CURL_INCLUDE_DIRS})
+    if(NOT APPLE)
+        include_directories(${OPENSSL_INCLUDE_DIR})
+    endif()
 endif()
 get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
 foreach(dir ${dirs})
@@ -206,6 +218,10 @@ set(SOURCE_FILES
         SpaceCadetPinball/imstb_truetype.h
         SpaceCadetPinball/DebugOverlay.cpp
         SpaceCadetPinball/DebugOverlay.h
+        SpaceCadetPinball/gm_sf2.cpp
+        SpaceCadetPinball/tsf.cpp
+        SpaceCadetPinball/tsf.h
+        SpaceCadetPinball/tml.h
         )
 
 # On Windows, include resource file with the icon
@@ -236,11 +252,20 @@ if(${CMAKE_VERSION} VERSION_GREATER "3.16.0" OR ${CMAKE_VERSION} VERSION_EQUAL "
             )
 endif()
 
-target_link_libraries(SpaceCadetPinball ${SDL2_LIBRARY} ${SDL2_MIXER_LIBRARY} ${CURL_LIBRARIES})
-if(APPLE)
-    target_link_libraries(SpaceCadetPinball "-framework Security")
+if(${CMAKE_SYSTEM_NAME} MATCHES "Emscripten")
+    target_link_libraries(SpaceCadetPinball idbfs.js)
+    set_target_properties(SpaceCadetPinball PROPERTIES LINK_FLAGS
+        "-s ALLOW_MEMORY_GROWTH=1 -s FORCE_FILESYSTEM=1 -s DEMANGLE_SUPPORT=1 \
+        -s FETCH=1 \
+        --shell-file ${CMAKE_CURRENT_SOURCE_DIR}/SpaceCadetPinball/emscripten_shell.html \
+        --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/game_resources@game_resources --bind")
 else()
-    target_link_libraries(SpaceCadetPinball OpenSSL::Crypto)
+    target_link_libraries(SpaceCadetPinball ${SDL2_LIBRARY} ${SDL2_MIXER_LIBRARY} ${CURL_LIBRARIES})
+    if(APPLE)
+        target_link_libraries(SpaceCadetPinball "-framework Security")
+    else()
+        target_link_libraries(SpaceCadetPinball OpenSSL::Crypto)
+    endif()
 endif()
 
 # On Windows, copy DLL to output
