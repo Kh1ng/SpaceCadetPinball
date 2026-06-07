@@ -535,6 +535,19 @@
         }
         // else: auth overlay is already visible; startGame() called after login
     </script>
+    <script>
+        // SDL2+Emscripten calls emscripten_set_element_css_size() at initRuntime with
+        // a canvas ID string read from WASM linear memory. In some builds the pointer
+        // is garbage, which causes document.querySelector() to throw a DOMException and
+        // crash the module. Since we handle canvas sizing via CSS (width:100%),
+        // we can safely swallow the bad-selector error here.
+        (function() {
+            var _qs = document.querySelector.bind(document);
+            document.querySelector = function(sel) {
+                try { return _qs(sel); } catch(e) { return null; }
+            };
+        })();
+    </script>
     {{{ SCRIPT }}}
 </body>
 
