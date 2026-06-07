@@ -258,7 +258,7 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Emscripten")
         "-s ALLOW_MEMORY_GROWTH=1 -s FORCE_FILESYSTEM=1 -s DEMANGLE_SUPPORT=1 \
         -s FETCH=1 \
         --shell-file ${CMAKE_CURRENT_SOURCE_DIR}/SpaceCadetPinball/emscripten_shell.html \
-        --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/game_resources@/ --bind")
+        --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/game_resources@game_resources --bind")
 else()
     target_link_libraries(SpaceCadetPinball ${SDL2_LIBRARY} ${SDL2_MIXER_LIBRARY} ${CURL_LIBRARIES})
     if(APPLE)

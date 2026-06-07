@@ -121,7 +121,13 @@ inline FILE* fopenu(const char* path, const char* opt)
 #endif
 
 // Platform specific data paths not found in SDL
-constexpr const char* PlatformDataPaths[2] = 
+#ifdef __EMSCRIPTEN__
+constexpr const char* PlatformDataPaths[1] =
+{
+	"game_resources/"
+};
+#else
+constexpr const char* PlatformDataPaths[2] =
 {
 	#ifdef _WIN32
 	nullptr
@@ -130,6 +136,7 @@ constexpr const char* PlatformDataPaths[2] =
 	"/usr/share/SpaceCadetPinball/"
 	#endif
 };
+#endif
 
 constexpr float Pi = 3.14159265358979323846f;
 
