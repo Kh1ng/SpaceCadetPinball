@@ -21,7 +21,7 @@
 // Compile-time defaults — override at build time via CMake defines or env vars
 // ---------------------------------------------------------------------------
 #ifndef LEADERBOARD_API_URL
-#define LEADERBOARD_API_URL "https://pinball.YOUR_DOMAIN.com"
+#define LEADERBOARD_API_URL "https://api.pinball.coltonspurgin.tech"
 #endif
 #ifndef LEADERBOARD_SECRET
 #define LEADERBOARD_SECRET ""
