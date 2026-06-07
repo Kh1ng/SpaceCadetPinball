@@ -86,38 +86,12 @@ static std::vector<LeaderboardEntry> parse_entries(const std::string& json)
 }
 
 // ===========================================================================
-// EMSCRIPTEN implementation — uses emscripten_fetch + EM_JS for Web Crypto
+// EMSCRIPTEN implementation — uses emscripten_fetch + emscripten_run_script
 // ===========================================================================
 #ifdef __EMSCRIPTEN__
 
 #include <emscripten.h>
 #include <emscripten/fetch.h>
-
-// JS helper: sign name|score|timestamp with HMAC-SHA256 via Web Crypto,
-// then POST the JSON to the API. Fire-and-forget.
-EM_JS(void, js_submit_score, (const char* api_url, const char* secret,
-                               const char* name, int score, long long timestamp), {
-	var url    = UTF8ToString(api_url) + "/scores";
-	var sec    = UTF8ToString(secret);
-	var nm     = UTF8ToString(name);
-	var msg    = nm + "|" + score + "|" + timestamp;
-
-	var enc = new TextEncoder();
-	crypto.subtle.importKey(
-		"raw", enc.encode(sec), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
-	).then(function(key) {
-		return crypto.subtle.sign("HMAC", key, enc.encode(msg));
-	}).then(function(sig) {
-		var hex = Array.from(new Uint8Array(sig))
-			.map(function(b) { return b.toString(16).padStart(2, "0"); }).join("");
-		var body = JSON.stringify({ name: nm, score: score, timestamp: timestamp, hmac: hex });
-		return fetch(url, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: body
-		});
-	}).catch(function(e) { console.warn("Leaderboard submit failed:", e); });
-});
 
 static void on_fetch_success(emscripten_fetch_t* f)
 {
@@ -157,7 +131,31 @@ void leaderboard::submit(const std::string& name, int score)
 {
 	if (ApiUrl.empty() || Secret.empty()) return;
 	long long ts = static_cast<long long>(std::time(nullptr));
-	js_submit_score(ApiUrl.c_str(), Secret.c_str(), name.c_str(), score, ts);
+
+	// Escape name for safe inline JS string (quotes and backslashes)
+	std::string safe_name;
+	for (char c : name) {
+		if (c == '\'' || c == '\\') safe_name += '\\';
+		safe_name += c;
+	}
+
+	// Build and run an inline JS snippet — avoids EM_JS sync-on-main-thread issues
+	char script[1024];
+	snprintf(script, sizeof script,
+		"(function(){"
+		"var url='%s/scores',sec='%s',nm='%s',sc=%d,ts=%lld;"
+		"var msg=nm+'|'+sc+'|'+ts,enc=new TextEncoder();"
+		"crypto.subtle.importKey('raw',enc.encode(sec),{name:'HMAC',hash:'SHA-256'},false,['sign'])"
+		".then(function(k){return crypto.subtle.sign('HMAC',k,enc.encode(msg));})"
+		".then(function(sig){"
+		"var hex=Array.from(new Uint8Array(sig)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');"
+		"fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},"
+		"body:JSON.stringify({name:nm,score:sc,timestamp:ts,hmac:hex})});})"
+		".catch(function(e){console.warn('Leaderboard submit:',e);});"
+		"})();",
+		ApiUrl.c_str(), Secret.c_str(), safe_name.c_str(), score, ts);
+
+	emscripten_run_script(script);
 }
 
 // ===========================================================================
