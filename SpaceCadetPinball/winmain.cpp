@@ -12,8 +12,10 @@
 #include "Sound.h"
 #include "translations.h"
 #include "font_selection.h"
-#include <curl/curl.h>
 #include <cstdlib>
+#ifndef __EMSCRIPTEN__
+#include <curl/curl.h>
+#endif
 
 constexpr const char* winmain::Version;
 
@@ -64,7 +66,9 @@ int winmain::WinMain(LPCSTR lpCmdLine)
 		leaderboard::ApiUrl = url;
 	if (const char* sec = std::getenv("PINBALL_LEADERBOARD_SECRET"))
 		leaderboard::Secret = sec;
+#ifndef __EMSCRIPTEN__
 	curl_global_init(CURL_GLOBAL_DEFAULT);
+#endif
 
 	printf("Game version: %s\n", Version);
 	printf("Command line: %s\n", lpCmdLine);
@@ -298,7 +302,9 @@ int winmain::WinMain(LPCSTR lpCmdLine)
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
+#ifndef __EMSCRIPTEN__
 	curl_global_cleanup();
+#endif
 
 	return return_value;
 }
