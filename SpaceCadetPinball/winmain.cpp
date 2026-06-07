@@ -4,6 +4,7 @@
 #include "control.h"
 #include "EmbeddedData.h"
 #include "fullscrn.h"
+#include "leaderboard.h"
 #include "midi.h"
 #include "options.h"
 #include "pb.h"
@@ -11,6 +12,8 @@
 #include "Sound.h"
 #include "translations.h"
 #include "font_selection.h"
+#include <curl/curl.h>
+#include <cstdlib>
 
 constexpr const char* winmain::Version;
 
@@ -55,6 +58,13 @@ int winmain::CursorIdleCounter = 0;
 int winmain::WinMain(LPCSTR lpCmdLine)
 {
 	std::set_new_handler(memalloc_failure);
+
+	// Allow env-var overrides for leaderboard URL and secret
+	if (const char* url = std::getenv("PINBALL_LEADERBOARD_URL"))
+		leaderboard::ApiUrl = url;
+	if (const char* sec = std::getenv("PINBALL_LEADERBOARD_SECRET"))
+		leaderboard::Secret = sec;
+	curl_global_init(CURL_GLOBAL_DEFAULT);
 
 	printf("Game version: %s\n", Version);
 	printf("Command line: %s\n", lpCmdLine);
@@ -288,6 +298,7 @@ int winmain::WinMain(LPCSTR lpCmdLine)
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
+	curl_global_cleanup();
 
 	return return_value;
 }

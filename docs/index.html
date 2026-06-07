@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Space Cadet Pinball — Global Leaderboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0a0a1a;
+      color: #e0d8c0;
+      font-family: "Courier New", Courier, monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    h1 {
+      font-size: clamp(1.4rem, 4vw, 2.2rem);
+      color: #ffd700;
+      text-shadow: 0 0 16px #ffd70080;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.25rem;
+    }
+
+    .subtitle {
+      font-size: 0.8rem;
+      color: #888;
+      margin-bottom: 2rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    #status {
+      font-size: 0.85rem;
+      color: #aaa;
+      margin-bottom: 1.5rem;
+      min-height: 1.2em;
+    }
+
+    table {
+      width: 100%;
+      max-width: 560px;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+
+    thead th {
+      color: #ffd700;
+      border-bottom: 2px solid #ffd70060;
+      padding: 0.5rem 0.75rem;
+      text-align: left;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid #ffffff12;
+      transition: background 0.15s;
+    }
+
+    tbody tr:hover { background: #ffffff08; }
+
+    tbody td {
+      padding: 0.55rem 0.75rem;
+    }
+
+    .rank { color: #888; width: 3rem; }
+    .rank-1 { color: #ffd700; font-weight: bold; }
+    .rank-2 { color: #c0c0c0; font-weight: bold; }
+    .rank-3 { color: #cd7f32; font-weight: bold; }
+
+    .score { text-align: right; font-variant-numeric: tabular-nums; color: #7ef5a8; }
+
+    .date { color: #555; font-size: 0.78rem; text-align: right; }
+
+    .empty { text-align: center; padding: 2rem; color: #555; }
+
+    footer {
+      margin-top: 3rem;
+      font-size: 0.7rem;
+      color: #444;
+    }
+
+    footer a { color: #666; text-decoration: none; }
+    footer a:hover { color: #aaa; }
+  </style>
+</head>
+<body>
+  <h1>3D SPACE CADET PINBALL</h1>
+  <p class="subtitle">Global Leaderboard — Top 25</p>
+  <p id="status">Loading...</p>
+  <table id="board" hidden>
+    <thead>
+      <tr>
+        <th class="rank">#</th>
+        <th>Name</th>
+        <th style="text-align:right">Score</th>
+        <th style="text-align:right">Date</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <footer>
+    <a href="https://github.com/Kh1ng/SpaceCadetPinball" target="_blank">github.com/Kh1ng/SpaceCadetPinball</a>
+  </footer>
+
+  <script>
+    // Set this to your deployed API URL
+    const API = "https://pinball.YOUR_DOMAIN.com";
+
+    const rankClass = (i) => i === 0 ? "rank rank-1" : i === 1 ? "rank rank-2" : i === 2 ? "rank rank-3" : "rank";
+
+    function fmt(n) {
+      return Number(n).toLocaleString();
+    }
+
+    function fmtDate(ts) {
+      const d = new Date(Number(ts) * 1000);
+      return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+    }
+
+    async function load() {
+      const status = document.getElementById("status");
+      const board  = document.getElementById("board");
+      const rows   = document.getElementById("rows");
+
+      try {
+        const res = await fetch(`${API}/scores`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        if (!data.length) {
+          status.textContent = "No scores yet — be the first!";
+          return;
+        }
+
+        rows.innerHTML = data.map((entry, i) => `
+          <tr>
+            <td class="${rankClass(i)}">${i + 1}</td>
+            <td>${escHtml(entry.name)}</td>
+            <td class="score">${fmt(entry.score)}</td>
+            <td class="date">${fmtDate(entry.submitted_at)}</td>
+          </tr>
+        `).join("");
+
+        status.textContent = `Last updated ${new Date().toLocaleTimeString()}`;
+        board.hidden = false;
+      } catch (e) {
+        status.textContent = `Failed to load scores: ${e.message}`;
+      }
+    }
+
+    function escHtml(s) {
+      return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+    load();
+    setInterval(load, 60_000);
+  </script>
+</body>
+</html>

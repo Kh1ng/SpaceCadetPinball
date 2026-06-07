@@ -24,7 +24,7 @@ if(APPLE)
     set(CMAKE_BUILD_WITH_INSTALL_RPATH true)
     set(CMAKE_INSTALL_RPATH "@executable_path/../Frameworks")
     set(CMAKE_OSX_DEPLOYMENT_TARGET "10.11")
-    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
+    set(CMAKE_OSX_ARCHITECTURES "arm64")
     list(APPEND SDL2_PATH "${CMAKE_CURRENT_LIST_DIR}/Libs")
     list(APPEND SDL2_MIXER_PATH "${CMAKE_CURRENT_LIST_DIR}/Libs")
 endif()
@@ -34,8 +34,26 @@ set(SDL2_BUILDING_LIBRARY ON)
 
 find_package(SDL2 REQUIRED)
 FIND_PACKAGE(SDL2_mixer REQUIRED)
+find_package(CURL REQUIRED)
+if(NOT APPLE)
+    find_package(OpenSSL REQUIRED)
+endif()
 
-include_directories(${SDL2_INCLUDE_DIR} ${SDL2_MIXER_INCLUDE_DIR})
+# Bake leaderboard URL and HMAC secret into the binary at build time.
+# Override with: cmake -DLEADERBOARD_API_URL="https://..." -DLEADERBOARD_SECRET="..."
+set(LEADERBOARD_API_URL "" CACHE STRING "Base URL of the leaderboard API")
+set(LEADERBOARD_SECRET  "" CACHE STRING "HMAC-SHA256 shared secret")
+if(LEADERBOARD_API_URL)
+    add_compile_definitions(LEADERBOARD_API_URL="${LEADERBOARD_API_URL}")
+endif()
+if(LEADERBOARD_SECRET)
+    add_compile_definitions(LEADERBOARD_SECRET="${LEADERBOARD_SECRET}")
+endif()
+
+include_directories(${SDL2_INCLUDE_DIR} ${SDL2_MIXER_INCLUDE_DIR} ${CURL_INCLUDE_DIRS})
+if(NOT APPLE)
+    include_directories(${OPENSSL_INCLUDE_DIR})
+endif()
 get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
 foreach(dir ${dirs})
   message(STATUS "Include dir='${dir}'")
@@ -58,6 +76,8 @@ set(SOURCE_FILES
         SpaceCadetPinball/GroupData.h
         SpaceCadetPinball/high_score.cpp
         SpaceCadetPinball/high_score.h
+        SpaceCadetPinball/leaderboard.cpp
+        SpaceCadetPinball/leaderboard.h
         SpaceCadetPinball/loader.cpp
         SpaceCadetPinball/loader.h
         SpaceCadetPinball/maths.cpp
@@ -216,7 +236,12 @@ if(${CMAKE_VERSION} VERSION_GREATER "3.16.0" OR ${CMAKE_VERSION} VERSION_EQUAL "
             )
 endif()
 
-target_link_libraries(SpaceCadetPinball ${SDL2_LIBRARY} ${SDL2_MIXER_LIBRARY})
+target_link_libraries(SpaceCadetPinball ${SDL2_LIBRARY} ${SDL2_MIXER_LIBRARY} ${CURL_LIBRARIES})
+if(APPLE)
+    target_link_libraries(SpaceCadetPinball "-framework Security")
+else()
+    target_link_libraries(SpaceCadetPinball OpenSSL::Crypto)
+endif()
 
 # On Windows, copy DLL to output
 if(WIN32)

@@ -1,0 +1,15 @@
+services:
+  leaderboard:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3456:3456"
+    volumes:
+      - leaderboard_data:/data
+    environment:
+      - LEADERBOARD_SECRET=${LEADERBOARD_SECRET}
+      - DB_PATH=/data/leaderboard.db
+      - PORT=3456
+
+volumes:
+  leaderboard_data:
