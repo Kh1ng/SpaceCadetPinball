@@ -28,19 +28,18 @@ jobs:
       - name: Configure
         run: |
           emcmake cmake -B build \
-            -DLEADERBOARD_SECRET="${{ secrets.LEADERBOARD_SECRET }}" \
-            -DCMAKE_BUILD_TYPE=Release
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLEADERBOARD_SECRET="${{ secrets.LEADERBOARD_SECRET }}"
 
       - name: Build
         run: cmake --build build --parallel
 
-      - name: Stage output
+      - name: Stage site
         run: |
           mkdir -p _site
-          # The build outputs SpaceCadetPinball.html/.js/.wasm/.data
-          cp bin/SpaceCadetPinball.* _site/
-          # Rename .html to index.html so it serves at /
-          mv _site/SpaceCadetPinball.html _site/index.html
+          cp bin/SpaceCadetPinball.js   _site/
+          cp bin/SpaceCadetPinball.wasm _site/
+          cp bin/SpaceCadetPinball.html _site/index.html
 
       - uses: actions/configure-pages@v5
 
