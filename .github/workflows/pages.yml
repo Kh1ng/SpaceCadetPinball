@@ -25,6 +25,13 @@ jobs:
         with:
           version: 3.1.61
 
+      - name: Fetch game data
+        run: |
+          sudo apt-get install -y p7zip-full
+          curl -L "https://archive.org/download/3-d-pinball-for-windows.-7z/3D%20Pinball%20for%20Windows.7z" -o pinball.7z
+          7z x pinball.7z -ogame_resources
+          rm pinball.7z
+
       - name: Configure
         run: |
           emcmake cmake -B build \

@@ -45,6 +45,8 @@
             font-family: Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--Background);
             text-align: center;
+            margin: 0;
+            padding: 16px;
         }
 
         textarea.emscripten {
@@ -154,7 +156,6 @@
             font-weight: bold;
         }
 
-
         .button {
             margin: 2px;
         }
@@ -188,11 +189,133 @@
         #status {
             margin: 40px 32px;
         }
+
+        /* ---- Auth overlay ---- */
+        #auth-overlay {
+            position: fixed;
+            inset: 0;
+            background: var(--Background);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        #auth-overlay.hidden { display: none; }
+
+        #auth-box {
+            width: 280px;
+            text-align: left;
+        }
+
+        #auth-box .window-body {
+            padding: 12px 14px 14px;
+        }
+
+        #auth-box label {
+            display: block;
+            margin-top: 8px;
+            margin-bottom: 2px;
+            font-size: 8pt;
+        }
+
+        #auth-box input[type=text],
+        #auth-box input[type=password] {
+            width: 100%;
+            box-sizing: border-box;
+            font-size: 8pt;
+            border: 1px solid var(--ButtonDkShadow);
+            box-shadow: inset 1px 1px 0px var(--ButtonShadow);
+            padding: 2px 4px;
+            background: white;
+        }
+
+        #auth-box .btn-row {
+            display: flex;
+            gap: 4px;
+            margin-top: 12px;
+            justify-content: flex-end;
+        }
+
+        #auth-box button {
+            font-family: inherit;
+            font-size: 8pt;
+            padding: 2px 12px;
+            cursor: pointer;
+            background-color: var(--ButtonFace);
+            color: var(--ButtonText);
+            border: none;
+            box-shadow: -0.5px -0.5px 0px 0.5px var(--ButtonLight), 0px 0px 0px 1px var(--ButtonShadow),
+                        -0.5px -0.5px 0px 1.5px var(--ButtonHilight), 0px 0px 0px 2px var(--ButtonDkShadow);
+        }
+
+        #auth-box button:active {
+            box-shadow: -0.5px -0.5px 0px 0.5px var(--ButtonShadow), 0px 0px 0px 1px var(--ButtonShadow),
+                        -0.5px -0.5px 0px 1.5px var(--WindowFrame), 0px 0px 0px 2px var(--WindowFrame);
+        }
+
+        #auth-error {
+            color: #c00;
+            font-size: 8pt;
+            margin-top: 6px;
+            min-height: 1em;
+        }
+
+        #auth-toggle {
+            margin-top: 8px;
+            font-size: 8pt;
+            text-align: center;
+        }
+
+        #auth-toggle a {
+            color: var(--HotTrackingColor);
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        #user-bar {
+            font-size: 8pt;
+            text-align: right;
+            padding: 2px 6px;
+            background: var(--GradientActiveTitle);
+            color: var(--TitleText);
+        }
+
+        #user-bar a {
+            color: #cdf;
+            cursor: pointer;
+            margin-left: 8px;
+            text-decoration: underline;
+        }
     </style>
 </head>
 
 <body>
-    <div class="window active">
+    <!-- Auth overlay -->
+    <div id="auth-overlay">
+        <div id="auth-box" class="window active">
+            <div class="titlebar">
+                <span class="titlebar-title" id="auth-title">Sign In</span>
+            </div>
+            <div class="window-body">
+                <label for="auth-username">Username</label>
+                <input type="text" id="auth-username" maxlength="20" autocomplete="username" />
+                <label for="auth-password">Password</label>
+                <input type="password" id="auth-password" maxlength="128" autocomplete="current-password" />
+                <div id="auth-error"></div>
+                <div class="btn-row">
+                    <button id="auth-submit">OK</button>
+                </div>
+                <div id="auth-toggle">
+                    <span id="auth-toggle-text">Don't have an account?</span>
+                    <a id="auth-toggle-link">Create one</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game window -->
+    <div class="window active" id="game-window" style="display:none;">
         <div class="titlebar">
             <span class="titlebar-title">3D Pinball for Windows - Space Cadet</span>
             <div class="titlebar-wincontrols">
@@ -227,7 +350,10 @@
                 </ul>
             </div>
         </div>
-
+        <div id="user-bar">
+            Signed in as <strong id="user-bar-name"></strong>
+            <a id="sign-out-link">Sign out</a>
+        </div>
         <div class="emscripten" id="status">Downloading...</div>
         <div class="emscripten">
             <progress value="0" max="100" id="progress" hidden=1></progress>
@@ -236,30 +362,112 @@
             tabindex="-1"></canvas>
     </div>
 
-    <!--<textarea class="emscripten" id="output" rows="8"></textarea>-->
-
     <script type='text/javascript'>
-        var statusElement = document.getElementById('status');
+        // ---------------------------------------------------------------------------
+        // Auth state
+        // ---------------------------------------------------------------------------
+        var _pinballToken = null;
+        var _pinballUser  = null;
+
+        var API_URL = 'https://pinball-api.coltonspurgin.tech';
+
+        function loadSession() {
+            try {
+                var t = localStorage.getItem('pinball_token');
+                var u = localStorage.getItem('pinball_user');
+                if (t && u) { _pinballToken = t; _pinballUser = u; return true; }
+            } catch(e) {}
+            return false;
+        }
+
+        function saveSession(token, username) {
+            _pinballToken = token;
+            _pinballUser  = username;
+            try {
+                localStorage.setItem('pinball_token', token);
+                localStorage.setItem('pinball_user', username);
+            } catch(e) {}
+        }
+
+        function clearSession() {
+            _pinballToken = null;
+            _pinballUser  = null;
+            try { localStorage.removeItem('pinball_token'); localStorage.removeItem('pinball_user'); } catch(e) {}
+        }
+
+        // ---------------------------------------------------------------------------
+        // Auth UI
+        // ---------------------------------------------------------------------------
+        var isRegisterMode = false;
+
+        document.getElementById('auth-toggle-link').addEventListener('click', function() {
+            isRegisterMode = !isRegisterMode;
+            document.getElementById('auth-title').textContent     = isRegisterMode ? 'Create Account' : 'Sign In';
+            document.getElementById('auth-submit').textContent    = isRegisterMode ? 'Create Account' : 'OK';
+            document.getElementById('auth-toggle-text').textContent = isRegisterMode ? 'Already have an account?' : "Don't have an account?";
+            document.getElementById('auth-toggle-link').textContent = isRegisterMode ? 'Sign in' : 'Create one';
+            document.getElementById('auth-error').textContent = '';
+            document.getElementById('auth-password').autocomplete = isRegisterMode ? 'new-password' : 'current-password';
+        });
+
+        document.getElementById('auth-submit').addEventListener('click', doAuth);
+        document.getElementById('auth-password').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') doAuth();
+        });
+
+        function doAuth() {
+            var username = document.getElementById('auth-username').value.trim();
+            var password = document.getElementById('auth-password').value;
+            var errEl    = document.getElementById('auth-error');
+            errEl.textContent = '';
+
+            if (!username || !password) { errEl.textContent = 'Please fill in all fields.'; return; }
+
+            var endpoint = isRegisterMode ? '/register' : '/login';
+            document.getElementById('auth-submit').disabled = true;
+
+            fetch(API_URL + endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: username, password: password })
+            })
+            .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+            .then(function(res) {
+                document.getElementById('auth-submit').disabled = false;
+                if (!res.ok) { errEl.textContent = res.data.error || 'Error'; return; }
+                saveSession(res.data.token, res.data.username);
+                startGame();
+            })
+            .catch(function(e) {
+                document.getElementById('auth-submit').disabled = false;
+                errEl.textContent = 'Could not reach server. Try again.';
+            });
+        }
+
+        document.getElementById('sign-out-link').addEventListener('click', function() {
+            clearSession();
+            location.reload();
+        });
+
+        function startGame() {
+            document.getElementById('auth-overlay').classList.add('hidden');
+            document.getElementById('game-window').style.display = '';
+            document.getElementById('user-bar-name').textContent = _pinballUser;
+        }
+
+        // ---------------------------------------------------------------------------
+        // Module scaffolding (needs to exist before SpaceCadetPinball.js loads)
+        // ---------------------------------------------------------------------------
+        var statusElement  = document.getElementById('status');
         var progressElement = document.getElementById('progress');
 
         var Module = {
             preRun: [],
             postRun: [],
             print: (function () {
-                var element = document.getElementById('output');
-                if (element) element.value = ''; // clear browser cache
                 return function (text) {
                     if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
-                    // These replacements are necessary if you render to raw HTML
-                    //text = text.replace(/&/g, "&amp;");
-                    //text = text.replace(/</g, "&lt;");
-                    //text = text.replace(/>/g, "&gt;");
-                    //text = text.replace('\n', '<br>', 'g');
                     console.log(text);
-                    /*if (element) {
-                        element.value += text + "\n";
-                        element.scrollTop = element.scrollHeight; // focus on bottom
-                    }*/
                 };
             })(),
             printErr: function (text) {
@@ -268,43 +476,38 @@
             },
             canvas: (function () {
                 var canvas = document.getElementById('canvas');
-
-                // As a default initial behavior, pop up an alert when webgl context is lost. To make your
-                // application robust, you may want to override this behavior before shipping!
-                // See http://www.khronos.org/registry/webgl/specs/latest/1.0/#5.15.2
-                canvas.addEventListener("webglcontextlost", function (e) { alert('WebGL context lost. You will need to reload the page.'); e.preventDefault(); }, false);
-
+                canvas.addEventListener("webglcontextlost", function (e) {
+                    alert('WebGL context lost. You will need to reload the page.');
+                    e.preventDefault();
+                }, false);
                 return canvas;
             })(),
             setStatus: function (text) {
                 if (!Module.setStatus.last) Module.setStatus.last = { time: Date.now(), text: '' };
                 if (text === Module.setStatus.last.text) return;
-
                 var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
                 var now = Date.now();
-                if (m && now - Module.setStatus.last.time < 30) return; // if this is a progress update, skip it if too soon
+                if (m && now - Module.setStatus.last.time < 30) return;
                 Module.setStatus.last.time = now;
                 Module.setStatus.last.text = text;
                 if (m) {
                     text = m[1];
                     progressElement.value = parseInt(m[2]) * 100;
-                    progressElement.max = parseInt(m[4]) * 100;
+                    progressElement.max   = parseInt(m[4]) * 100;
                     progressElement.hidden = false;
                 } else {
                     progressElement.value = null;
-                    progressElement.max = null;
+                    progressElement.max   = null;
                     progressElement.hidden = true;
-
                     var canvas = document.getElementById('canvas');
                     canvas.style.display = "";
                 }
                 statusElement.innerHTML = text;
-
                 if (text === "") {
-                    statusElement.style.display = "none";
+                    statusElement.style.display  = "none";
                     progressElement.style.display = "none";
                 } else {
-                    statusElement.style.display = "";
+                    statusElement.style.display  = "";
                     progressElement.style.display = "";
                 }
             },
@@ -314,13 +517,20 @@
                 Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies - left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
             }
         };
-        Module.setStatus('Downloading...');
         window.onerror = function () {
             Module.setStatus('Exception thrown, see JavaScript console');
             Module.setStatus = function (text) {
                 if (text) Module.printErr('[post-exception status] ' + text);
             };
         };
+
+        // ---------------------------------------------------------------------------
+        // Boot: check existing session, else show auth form
+        // ---------------------------------------------------------------------------
+        if (loadSession()) {
+            startGame();
+        }
+        // else: auth overlay is already visible; startGame() called after login
     </script>
     {{{ SCRIPT }}}
 </body>

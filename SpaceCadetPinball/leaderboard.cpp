@@ -72,10 +72,11 @@ static std::vector<LeaderboardEntry> parse_entries(const std::string& json)
 			if (field > 0) expect(',');
 			std::string key = read_string();
 			expect(':');
-			if      (key == "name")         e.Name = read_string();
+			if      (key == "username")     e.Name = read_string();
 			else if (key == "score")        e.Score = static_cast<int>(read_number());
 			else if (key == "submitted_at") e.SubmittedAt = read_number();
-			else read_number();
+			else if (json[pos] == '"')      read_string();
+			else                            read_number();
 		}
 		expect('}');
 		out.push_back(e);
@@ -127,33 +128,29 @@ void leaderboard::fetch_async()
 	emscripten_fetch(&attr, url.c_str());
 }
 
-void leaderboard::submit(const std::string& name, int score)
+void leaderboard::submit(const std::string& /*name_unused*/, int score)
 {
 	if (ApiUrl.empty() || Secret.empty()) return;
 	long long ts = static_cast<long long>(std::time(nullptr));
 
-	// Escape name for safe inline JS string (quotes and backslashes)
-	std::string safe_name;
-	for (char c : name) {
-		if (c == '\'' || c == '\\') safe_name += '\\';
-		safe_name += c;
-	}
-
-	// Build and run an inline JS snippet — avoids EM_JS sync-on-main-thread issues
-	char script[1024];
+	// Use the logged-in username and JWT token stored in JS globals
+	// (_pinballUser and _pinballToken set by the auth screen in emscripten_shell.html)
+	char script[1536];
 	snprintf(script, sizeof script,
 		"(function(){"
-		"var url='%s/scores',sec='%s',nm='%s',sc=%d,ts=%lld;"
+		"var url='%s/scores',sec='%s',sc=%d,ts=%lld;"
+		"var nm=window._pinballUser||'',tok=window._pinballToken||'';"
+		"if(!nm||!tok){console.warn('Leaderboard: not logged in');return;}"
 		"var msg=nm+'|'+sc+'|'+ts,enc=new TextEncoder();"
 		"crypto.subtle.importKey('raw',enc.encode(sec),{name:'HMAC',hash:'SHA-256'},false,['sign'])"
 		".then(function(k){return crypto.subtle.sign('HMAC',k,enc.encode(msg));})"
 		".then(function(sig){"
 		"var hex=Array.from(new Uint8Array(sig)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');"
-		"fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},"
-		"body:JSON.stringify({name:nm,score:sc,timestamp:ts,hmac:hex})});})"
+		"fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok},"
+		"body:JSON.stringify({score:sc,timestamp:ts,hmac:hex})});})"
 		".catch(function(e){console.warn('Leaderboard submit:',e);});"
 		"})();",
-		ApiUrl.c_str(), Secret.c_str(), safe_name.c_str(), score, ts);
+		ApiUrl.c_str(), Secret.c_str(), score, ts);
 
 	emscripten_run_script(script);
 }

@@ -8,6 +8,8 @@ services:
       - leaderboard_data:/data
     environment:
       - LEADERBOARD_SECRET=${LEADERBOARD_SECRET}
+      - JWT_SECRET=${JWT_SECRET}
+      - ALLOWED_ORIGIN=${ALLOWED_ORIGIN:-https://pinball.coltonspurgin.tech}
       - DB_PATH=/data/leaderboard.db
       - PORT=3456
 
