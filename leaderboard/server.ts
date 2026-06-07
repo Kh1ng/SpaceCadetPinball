@@ -38,16 +38,27 @@ function verifyHmac(name: string, score: number, timestamp: number, sig: string)
   return diff === 0;
 }
 
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? "https://pinball.coltonspurgin.tech";
+
 const app = new Hono();
 
-app.use("/*", cors({ origin: "*" }));
+// Restrict CORS to the game's origin only
+app.use("/*", cors({ origin: ALLOWED_ORIGIN }));
 
+// GET is public — reading scores is fine from anywhere
 app.get("/scores", (c) => {
   const rows = topScores.all();
   return c.json(rows);
 });
 
 app.post("/scores", async (c) => {
+  // Reject POSTs from unexpected origins (stops casual browser-based abuse;
+  // the HMAC is the real gate against scripted abuse)
+  const origin = c.req.header("origin") ?? "";
+  if (origin && origin !== ALLOWED_ORIGIN) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+
   let body: { name?: string; score?: number; timestamp?: number; hmac?: string };
   try {
     body = await c.req.json();
