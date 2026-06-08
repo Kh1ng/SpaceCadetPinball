@@ -121,7 +121,9 @@ void high_score::show_and_set_high_score_dialog(high_score_entry score)
 {
 	ScoreQueue.insert(ScoreQueue.begin(), score);
 	ShowDialog = true;
-	leaderboard::fetch_async();
+	// Do NOT fetch here — the async response would overwrite leaderboard::Entries
+	// before the optimistic insert (done in RenderHighScoreDialog) is even visible.
+	// We fetch after OK is clicked, once the score is actually on the server.
 }
 
 void high_score::RenderHighScoreDialog()
