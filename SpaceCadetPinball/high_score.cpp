@@ -154,6 +154,22 @@ void high_score::RenderHighScoreDialog()
 						sizeof(DlgData.Entry.Name) - 1);
 					DlgData.Entry.Name[sizeof(DlgData.Entry.Name) - 1] = '\0';
 #endif
+					// Optimistically insert the new score into the leaderboard so it
+					// appears highlighted immediately rather than after the next fetch.
+					LeaderboardEntry optimistic;
+					optimistic.Name = DlgData.Entry.Name;
+					optimistic.Score = DlgData.Entry.Score;
+					optimistic.SubmittedAt = 0; // sentinel: marks this as the new entry
+					// Remove any previous optimistic entry for this user/score to avoid dupes
+					leaderboard::Entries.erase(
+						std::remove_if(leaderboard::Entries.begin(), leaderboard::Entries.end(),
+							[](const LeaderboardEntry& e){ return e.SubmittedAt == 0; }),
+						leaderboard::Entries.end());
+					leaderboard::Entries.push_back(optimistic);
+					std::sort(leaderboard::Entries.begin(), leaderboard::Entries.end(),
+						[](const LeaderboardEntry& a, const LeaderboardEntry& b){
+							return a.Score > b.Score;
+						});
 					break;
 				}
 			}
@@ -211,6 +227,12 @@ void high_score::RenderHighScoreDialog()
 				for (auto& entry : leaderboard::Entries)
 				{
 					ImGui::TableNextRow();
+					// Highlight the optimistically-inserted new entry in gold
+					if (dlg_enter_name && entry.SubmittedAt == 0)
+					{
+						ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0,
+							IM_COL32(255, 215, 0, 120));
+					}
 					ImGui::TableNextColumn();
 					snprintf(buf, sizeof buf, "%d", rank++);
 					ImGui::TextUnformatted(buf);
@@ -233,6 +255,8 @@ void high_score::RenderHighScoreDialog()
 			{
 				place_new_score_into(DlgData);
 				leaderboard::submit(DlgData.Entry.Name, DlgData.Entry.Score);
+				// Re-fetch so the server-confirmed entry replaces the optimistic one
+				leaderboard::fetch_async();
 			}
 			ImGui::CloseCurrentPopup();
 		}
