@@ -13,7 +13,9 @@
 #include "translations.h"
 #include "font_selection.h"
 #include <cstdlib>
-#ifndef __EMSCRIPTEN__
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#else
 #include <curl/curl.h>
 #endif
 
@@ -441,10 +443,19 @@ void winmain::MainLoop()
 			TimePoint frameEnd;
 			if (targetTimeDelta > DurationMs::zero() && !Options.UncappedUpdatesPerSecond)
 			{
+#ifdef __EMSCRIPTEN__
+				// HybridSleep spins on Clock::now() which blocks the browser's main
+				// thread indefinitely even with Asyncify. Use emscripten_sleep instead
+				// so Asyncify can properly suspend the WASM stack and yield to the
+				// browser compositor between frames.
+				auto ms = static_cast<unsigned int>(std::max(0.0, targetTimeDelta.count()));
+				emscripten_sleep(ms);
+#else
 				if (Options.HybridSleep)
 					HybridSleep(targetTimeDelta);
 				else
 					std::this_thread::sleep_for(targetTimeDelta);
+#endif
 				frameEnd = Clock::now();
 			}
 			else
