@@ -47,6 +47,8 @@
             text-align: center;
             margin: 0;
             padding: 16px;
+            box-sizing: border-box;
+            min-height: 100vh;
         }
 
         textarea.emscripten {
@@ -131,7 +133,8 @@
             padding-right: 0;
             margin-left: auto;
             margin-right: auto;
-            display: inline-block;
+            display: block;
+            max-width: 900px;
         }
 
         .window.active {
@@ -358,7 +361,7 @@
             </div>
         </div>
         <div id="user-bar">
-            <span>Signed in as <strong id="user-bar-name"></strong></span>
+            <span>Signed in as&nbsp;<strong id="user-bar-name"></strong></span>
             <a id="sign-out-link">Sign out</a>
         </div>
         <div class="emscripten" id="status">Downloading...</div>
