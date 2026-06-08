@@ -280,15 +280,18 @@
         #user-bar {
             font-size: 8pt;
             text-align: right;
-            padding: 2px 6px;
+            padding: 3px 8px;
             background: var(--GradientActiveTitle);
             color: var(--TitleText);
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 6px;
         }
 
         #user-bar a {
             color: #cdf;
             cursor: pointer;
-            margin-left: 8px;
             text-decoration: underline;
         }
     </style>
@@ -355,7 +358,7 @@
             </div>
         </div>
         <div id="user-bar">
-            Signed in as <strong id="user-bar-name"></strong>
+            <span>Signed in as <strong id="user-bar-name"></strong></span>
             <a id="sign-out-link">Sign out</a>
         </div>
         <div class="emscripten" id="status">Downloading...</div>
