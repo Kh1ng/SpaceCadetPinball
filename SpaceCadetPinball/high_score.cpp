@@ -194,9 +194,8 @@ void high_score::RenderHighScoreDialog()
 		}
 		else
 		{
-			if (ImGui::BeginTable("global_table", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_ScrollY, ImVec2(0, 160)))
+			if (ImGui::BeginTable("global_table", 3, ImGuiTableFlags_Borders))
 			{
-				ImGui::TableSetupScrollFreeze(0, 1);
 				ImGui::TableSetupColumn(pb::get_rc_string(Msg::HIGHSCORES_Rank), ImGuiTableColumnFlags_WidthFixed, 40);
 				ImGui::TableSetupColumn(pb::get_rc_string(Msg::HIGHSCORES_Name));
 				ImGui::TableSetupColumn(pb::get_rc_string(Msg::HIGHSCORES_Score), ImGuiTableColumnFlags_WidthFixed, 100);

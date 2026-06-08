@@ -322,7 +322,7 @@
         }
 
         #touch-left  { left: 0; }
-        #touch-right { right: 0; left: 50%; }
+        #touch-right { left: 50%; }
 
         #touch-help-btn {
             position: absolute;
@@ -626,13 +626,31 @@
             // Track active keys so we can release them
             var activeKeys = {}; // touchId -> key fired
 
-            // Determine which logical key a touch point maps to (ignore help-btn area)
+            // Resume AudioContext on first touch (mobile browsers suspend it until a gesture)
+            document.addEventListener('touchstart', function resumeAudio() {
+                try {
+                    // Emscripten SDL2 stores the audio context here
+                    if (typeof SDL2 !== 'undefined' && SDL2.audioContext && SDL2.audioContext.state === 'suspended') {
+                        SDL2.audioContext.resume();
+                    }
+                    // Also try any AudioContext the page may have created
+                    if (window._sdlAudioCtx && window._sdlAudioCtx.state === 'suspended') {
+                        window._sdlAudioCtx.resume();
+                    }
+                } catch(e) {}
+                document.removeEventListener('touchstart', resumeAudio);
+            }, { passive: true });
+
+            // Determine which logical key a touch point maps to using position math
+            // (elementFromPoint is unreliable on transparent divs over a canvas)
             function zoneKey(touch) {
-                var el = document.elementFromPoint(touch.clientX, touch.clientY);
-                if (!el) return null;
-                if (el.id === 'touch-left'  || el.closest('#touch-left'))  return { key: 'z',  code: 'KeyZ' };
-                if (el.id === 'touch-right' || el.closest('#touch-right')) return { key: '/',  code: 'Slash' };
-                return null;
+                var rect = overlay.getBoundingClientRect();
+                if (touch.clientX < rect.left || touch.clientX > rect.right) return null;
+                if (touch.clientX - rect.left < rect.width / 2) {
+                    return { key: 'z', code: 'KeyZ' };
+                } else {
+                    return { key: '/', code: 'Slash' };
+                }
             }
 
             function handleTouchStart(e) {
