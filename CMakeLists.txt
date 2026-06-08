@@ -257,6 +257,8 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Emscripten")
     set_target_properties(SpaceCadetPinball PROPERTIES LINK_FLAGS
         "-s ALLOW_MEMORY_GROWTH=1 -s FORCE_FILESYSTEM=1 \
         -s FETCH=1 \
+        -s ASYNCIFY=1 \
+        -s ASYNCIFY_IMPORTS=['emscripten_sleep'] \
         --shell-file ${CMAKE_CURRENT_SOURCE_DIR}/SpaceCadetPinball/emscripten_shell.html \
         --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/game_resources@game_resources")
 else()
