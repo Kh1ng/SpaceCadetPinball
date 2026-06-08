@@ -61,6 +61,9 @@ void Sound::PlaySound(Mix_Chunk* wavePtr, int time, TPinballComponent* soundSour
 		if (channel != -1)
 		{
 			Channels[channel].TimeStamp = time;
+#ifndef __EMSCRIPTEN__
+			// Mix_SetPosition doesn't work reliably in SDL_mixer's Emscripten port
+			// (sounds default to left channel only). Skip positional audio in WASM builds.
 			if (options::Options.SoundStereo)
 			{
 				// Positional audio uses collision grid 2D coordinates normalized to [0, 1]
@@ -111,6 +114,7 @@ void Sound::PlaySound(Mix_Chunk* wavePtr, int time, TPinballComponent* soundSour
 				       info
 				);*/
 			}
+#endif // __EMSCRIPTEN__
 		}
 	}
 }

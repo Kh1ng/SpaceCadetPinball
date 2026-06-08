@@ -281,16 +281,15 @@
             text-decoration: underline;
         }
 
+        /* User info lives in the title bar right side, replacing window controls */
         #user-bar {
-            font-size: 8pt;
-            text-align: right;
-            padding: 3px 8px;
-            background: var(--GradientActiveTitle);
-            color: var(--TitleText);
             display: flex;
             align-items: center;
-            justify-content: flex-end;
-            gap: 6px;
+            gap: 8px;
+            padding: 0 6px;
+            font-size: 8pt;
+            color: var(--TitleText);
+            white-space: nowrap;
         }
 
         #user-bar a {
@@ -329,41 +328,10 @@
     <div class="window active" id="game-window">
         <div class="titlebar">
             <span class="titlebar-title">3D Pinball for Windows - Space Cadet</span>
-            <div class="titlebar-wincontrols">
-                <ul class="buttons-wrapper">
-                    <li class="button minimize">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="0.125017in" height="0.104181in"
-                            viewBox="0 0 12 10" class="button-content replaced-svg">
-                            <path id="Minimize" fill="black" stroke="black" stroke-width="0"
-                                d="M 2.00,7.00            C 2.00,7.00 8.00,7.00 8.00,7.00              8.00,7.00 8.00,9.00 8.00,9.00              8.00,9.00 2.00,9.00 2.00,9.00              2.00,9.00 2.00,7.00 2.00,7.00 Z">
-                            </path>
-                        </svg>
-                    </li>
-                    <li class="button maximize">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="0.125017in" height="0.104181in"
-                            viewBox="0 0 12 10" class="button-content replaced-svg">
-                            <path id="Maximize" fill="black" stroke="black" stroke-width="0"
-                                d="M 2.00,2.00            C 2.00,2.00 9.00,2.00 9.00,2.00              9.00,2.00 9.00,8.00 9.00,8.00              9.00,8.00 2.00,8.00 2.00,8.00              2.00,8.00 2.00,2.00 2.00,2.00 Z            M 1.00,0.00            C 1.00,0.00 1.00,9.00 1.00,9.00              1.00,9.00 10.00,9.00 10.00,9.00              10.00,9.00 10.00,0.00 10.00,0.00              10.00,0.00 1.00,0.00 1.00,0.00 Z">
-                            </path>
-                        </svg>
-                    </li>
-                    <li class="spacer"></li>
-                    <li class="button close">
-                        <svg xmlns:svg="http://www.w3.org/2000/svg" xmlns="http://www.w3.org/2000/svg" version="1.1"
-                            width="12" height="10" class="button-content replaced-svg">
-                            <g transform="translate(0,-1042.3622)" id="layer1">
-                                <path
-                                    d="m 2.0025485,1043.3853 2.0198115,0 0,1.0185 0.984011,0 0,0.984 1.985286,0 0,-0.984 1.001274,0 0,-1.0185 2.002548,0 0,1.0013 0,0 0,0 -1.001274,0 0,1.0012 -1.001274,0 0,0.9841 -1.001274,0 0,1.0012 1.001274,0 0,1.0013 1.001274,0 0,1.0013 1.001274,0 0,1.0013 -2.002548,0 0,-1.0013 -1.001274,0 0,-0.984 -1.985286,0 0,0.984 -1.001274,0 0,1.0013 -2.0025485,0 0,-1.0013 1.0012745,0 0,-1.0013 1.001274,0 0,-1.0013 1.001274,0 0,-1.0012 -1.001274,0 0,-0.9841 -1.001274,0 0,-1.0012 -1.0012745,0 0,-1.0186 z"
-                                    id="Close" fill="black" stroke-width="0"></path>
-                            </g>
-                        </svg>
-                    </li>
-                </ul>
+            <div id="user-bar">
+                <span>Signed in as&nbsp;<strong id="user-bar-name"></strong></span>
+                <a id="sign-out-link">Sign out</a>
             </div>
-        </div>
-        <div id="user-bar">
-            <span>Signed in as&nbsp;<strong id="user-bar-name"></strong></span>
-            <a id="sign-out-link">Sign out</a>
         </div>
         <div class="emscripten" id="status">Downloading...</div>
         <div class="emscripten">

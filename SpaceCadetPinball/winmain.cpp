@@ -139,7 +139,13 @@ int winmain::WinMain(LPCSTR lpCmdLine)
 			printf("Could not initialize SDL MIDI, music might not work.\nSDL Error: %s\n", SDL_GetError());
 			SDL_ClearError();
 		}
+#ifdef __EMSCRIPTEN__
+		// Web Audio API natively uses float32; requesting S16 (MIX_DEFAULT_FORMAT)
+		// causes "Unrecognized audio format" errors in SDL_mixer's Emscripten port.
+		if (Mix_OpenAudio(44100, AUDIO_F32SYS, 2, 2048) != 0)
+#else
 		if (Mix_OpenAudio(MIX_DEFAULT_FREQUENCY, MIX_DEFAULT_FORMAT, 2, 1024) != 0)
+#endif
 		{
 			printf("Could not open audio device, continuing without audio.\nSDL Error: %s\n", SDL_GetError());
 			SDL_ClearError();

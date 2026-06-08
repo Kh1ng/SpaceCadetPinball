@@ -25,10 +25,14 @@ jobs:
         with:
           version: 3.1.61
           actions-cache-folder: .emsdk-cache
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
       - name: Cache game data
         id: cache-game
         uses: actions/cache@v4
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         with:
           path: game_resources
           key: pinball-game-data-v1
