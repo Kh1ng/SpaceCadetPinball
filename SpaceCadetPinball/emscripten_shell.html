@@ -404,8 +404,7 @@
                     <button id="auth-submit">OK</button>
                 </div>
                 <div id="auth-toggle">
-                    <span id="auth-toggle-text">Don't have an account?</span>
-                    <a id="auth-toggle-link">Create one</a>
+                    <span id="auth-toggle-text">Don't have an account?</span>&nbsp;<a id="auth-toggle-link">Create one</a>
                 </div>
             </div>
         </div>
@@ -545,9 +544,9 @@
             document.getElementById('user-bar-name').textContent = _pinballUser;
             // Resume audio now that the user is authenticated
             try {
-                if (typeof SDL2 !== 'undefined' && SDL2.audioContext) {
-                    SDL2.audioContext.resume();
-                }
+                var ctx = (typeof SDL2 !== 'undefined' && SDL2.audioContext)
+                       || (typeof Module !== 'undefined' && Module.SDL2 && Module.SDL2.audioContext);
+                if (ctx) ctx.resume();
             } catch(e) {}
         }
 
@@ -561,14 +560,18 @@
             preRun: [],
             postRun: [],
             onRuntimeInitialized: function() {
-                // Mute the game until the user has logged in.
-                // SDL_mixer creates its AudioContext during init; suspend it immediately
-                // if we're still showing the auth overlay.
+                // Mute the game until the user logs in.
+                // onRuntimeInitialized fires before main() so SDL_mixer doesn't
+                // exist yet — poll until the AudioContext appears, then suspend it.
                 if (!_pinballToken) {
+                    var attempts = 0;
                     var tryMute = function() {
-                        if (typeof SDL2 !== 'undefined' && SDL2.audioContext) {
-                            SDL2.audioContext.suspend();
-                        } else {
+                        // Emscripten SDL2 stores the context at SDL2.audioContext
+                        var ctx = (typeof SDL2 !== 'undefined' && SDL2.audioContext)
+                               || (typeof Module !== 'undefined' && Module.SDL2 && Module.SDL2.audioContext);
+                        if (ctx) {
+                            ctx.suspend();
+                        } else if (attempts++ < 100) { // retry for up to 10 s
                             setTimeout(tryMute, 100);
                         }
                     };

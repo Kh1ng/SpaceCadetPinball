@@ -179,6 +179,7 @@ void high_score::RenderHighScoreDialog()
 	}
 
 	bool unused_open = true;
+	ImGui::SetNextWindowSizeConstraints(ImVec2(380, 0), ImVec2(480, 600));
 	if (ImGui::BeginPopupModal(pb::get_rc_string(Msg::HIGHSCORES_Caption), &unused_open, ImGuiWindowFlags_AlwaysAutoResize))
 	{
 		// ----------------------------------------------------------------
@@ -231,7 +232,7 @@ void high_score::RenderHighScoreDialog()
 					if (dlg_enter_name && entry.SubmittedAt == 0)
 					{
 						ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0,
-							IM_COL32(255, 215, 0, 120));
+							IM_COL32(255, 200, 0, 200));
 					}
 					ImGui::TableNextColumn();
 					snprintf(buf, sizeof buf, "%d", rank++);
