@@ -53,9 +53,18 @@ jobs:
       - name: Stage site
         run: |
           mkdir -p _site
-          cp bin/SpaceCadetPinball.js   _site/
-          cp bin/SpaceCadetPinball.wasm _site/
-          cp bin/SpaceCadetPinball.html _site/index.html
+          # Append short git SHA to all build artifacts so the browser cache
+          # can never serve mismatched files from different builds
+          SHA=$(git rev-parse --short HEAD)
+          cp bin/SpaceCadetPinball.js   "_site/SpaceCadetPinball.${SHA}.js"
+          cp bin/SpaceCadetPinball.wasm "_site/SpaceCadetPinball.${SHA}.wasm"
+          cp bin/SpaceCadetPinball.data "_site/SpaceCadetPinball.${SHA}.data"
+          # Patch the JS loader (contains .wasm and .data references) and HTML
+          sed -i "s/SpaceCadetPinball\.wasm/SpaceCadetPinball.${SHA}.wasm/g; \
+                  s/SpaceCadetPinball\.data/SpaceCadetPinball.${SHA}.data/g" \
+            "_site/SpaceCadetPinball.${SHA}.js"
+          sed "s/SpaceCadetPinball\.js/SpaceCadetPinball.${SHA}.js/g" \
+            bin/SpaceCadetPinball.html > _site/index.html
 
       - uses: actions/configure-pages@v5
 
