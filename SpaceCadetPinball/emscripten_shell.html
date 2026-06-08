@@ -4,6 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>3D Pinball for Windows - Space Cadet</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎱</text></svg>">
     <style>
@@ -296,6 +297,16 @@
             color: #cdf;
             cursor: pointer;
             text-decoration: underline;
+        }
+
+        /* ---- Mobile layout ---- */
+        @media (max-width: 600px) {
+            body {
+                padding: 4px;
+            }
+            .window {
+                max-width: 100%;
+            }
         }
 
         /* ---- Mobile touch overlay ---- */
@@ -615,9 +626,11 @@
             }, { passive: true });
 
             // Key helpers
-            function fireKey(type, key, code) {
+            function fireKey(type, key, code, keyCode) {
                 var evt = new KeyboardEvent(type, {
-                    key: key, code: code, keyCode: key.charCodeAt ? key.charCodeAt(0) : 0,
+                    key: key, code: code,
+                    keyCode: keyCode || (key.charCodeAt ? key.charCodeAt(0) : 0),
+                    which:   keyCode || (key.charCodeAt ? key.charCodeAt(0) : 0),
                     bubbles: true, cancelable: true
                 });
                 document.dispatchEvent(evt);
@@ -641,15 +654,16 @@
                 document.removeEventListener('touchstart', resumeAudio);
             }, { passive: true });
 
-            // Determine which logical key a touch point maps to using position math
-            // (elementFromPoint is unreliable on transparent divs over a canvas)
+            // Determine which logical key a touch point maps to using position math.
+            // keyCode must match the DOM standard values SDL2/Emscripten maps from:
+            //   Z key → keyCode 90, / key → keyCode 191
             function zoneKey(touch) {
                 var rect = overlay.getBoundingClientRect();
                 if (touch.clientX < rect.left || touch.clientX > rect.right) return null;
                 if (touch.clientX - rect.left < rect.width / 2) {
-                    return { key: 'z', code: 'KeyZ' };
+                    return { key: 'z', code: 'KeyZ', keyCode: 90 };
                 } else {
-                    return { key: '/', code: 'Slash' };
+                    return { key: '/', code: 'Slash', keyCode: 191 };
                 }
             }
 
@@ -678,7 +692,7 @@
                     var t = e.changedTouches[i];
                     var k = zoneKey(t);
                     if (k && !activeKeys[t.identifier]) {
-                        fireKey('keydown', k.key, k.code);
+                        fireKey('keydown', k.key, k.code, k.keyCode);
                         activeKeys[t.identifier] = k;
                     }
                 }
@@ -701,7 +715,7 @@
                 for (var i = 0; i < e.changedTouches.length; i++) {
                     var id = e.changedTouches[i].identifier;
                     if (activeKeys[id]) {
-                        fireKey('keyup', activeKeys[id].key, activeKeys[id].code);
+                        fireKey('keyup', activeKeys[id].key, activeKeys[id].code, activeKeys[id].keyCode);
                         delete activeKeys[id];
                     }
                 }
@@ -709,7 +723,7 @@
 
             function releaseAll() {
                 for (var id in activeKeys) {
-                    fireKey('keyup', activeKeys[id].key, activeKeys[id].code);
+                    fireKey('keyup', activeKeys[id].key, activeKeys[id].code, activeKeys[id].keyCode);
                 }
                 activeKeys = {};
             }
