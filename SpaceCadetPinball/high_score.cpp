@@ -7,6 +7,10 @@
 #include "score.h"
 #include "translations.h"
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 bool high_score::dlg_enter_name;
 bool high_score::ShowDialog = false;
 high_score_entry high_score::DlgData;
@@ -142,6 +146,14 @@ void high_score::RenderHighScoreDialog()
 				if (DlgData.Position != -1)
 				{
 					dlg_enter_name = true;
+#ifdef __EMSCRIPTEN__
+					// Auto-fill from the logged-in username — no typing needed.
+					const char* jsUser = emscripten_run_script_string(
+						"window._pinballUser || 'Player'");
+					strncpy(DlgData.Entry.Name, jsUser,
+						sizeof(DlgData.Entry.Name) - 1);
+					DlgData.Entry.Name[sizeof(DlgData.Entry.Name) - 1] = '\0';
+#endif
 					break;
 				}
 			}
@@ -150,24 +162,17 @@ void high_score::RenderHighScoreDialog()
 		}
 	}
 
-	bool unused_open = true, textBoxSubmit = false;
+	bool unused_open = true;
 	if (ImGui::BeginPopupModal(pb::get_rc_string(Msg::HIGHSCORES_Caption), &unused_open, ImGuiWindowFlags_AlwaysAutoResize))
 	{
 		// ----------------------------------------------------------------
-		// New high score name entry
+		// New high score banner (name is pre-filled from logged-in user)
 		// ----------------------------------------------------------------
 		if (dlg_enter_name)
 		{
-			ImGui::TextUnformatted("New High Score! Enter your name:");
-			ImGui::PushItemWidth(260);
-			if (ImGui::IsWindowAppearing())
-				ImGui::SetKeyboardFocusHere(0);
-			if (ImGui::InputText("##name", DlgData.Entry.Name, IM_ARRAYSIZE(DlgData.Entry.Name),
-				ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll))
-			{
-				textBoxSubmit = true;
-			}
-			ImGui::PopItemWidth();
+			char banner[72];
+			snprintf(banner, sizeof banner, "New High Score for %s!", DlgData.Entry.Name);
+			ImGui::TextUnformatted(banner);
 			ImGui::Separator();
 		}
 
@@ -222,7 +227,7 @@ void high_score::RenderHighScoreDialog()
 				leaderboard::fetch_async();
 		}
 
-		if (ImGui::Button(pb::get_rc_string(Msg::GenericOk)) || textBoxSubmit)
+		if (ImGui::Button(pb::get_rc_string(Msg::GenericOk)))
 		{
 			if (dlg_enter_name)
 			{
