@@ -491,6 +491,17 @@
         });
 
         document.getElementById('auth-submit').addEventListener('click', doAuth);
+
+        // SDL2/Emscripten registers keydown/keyup/keypress on `window` (bubble phase)
+        // and calls preventDefault(), swallowing keystrokes from auth inputs.
+        // stopPropagation() here prevents bubbling to window before SDL sees them.
+        ['auth-username', 'auth-password'].forEach(function(id) {
+            var el = document.getElementById(id);
+            ['keydown', 'keyup', 'keypress'].forEach(function(t) {
+                el.addEventListener(t, function(e) { e.stopPropagation(); });
+            });
+        });
+
         document.getElementById('auth-password').addEventListener('keydown', function(e) {
             if (e.key === 'Enter') doAuth();
         });
@@ -532,6 +543,12 @@
         function startGame() {
             document.getElementById('auth-overlay').classList.add('hidden');
             document.getElementById('user-bar-name').textContent = _pinballUser;
+            // Resume audio now that the user is authenticated
+            try {
+                if (typeof SDL2 !== 'undefined' && SDL2.audioContext) {
+                    SDL2.audioContext.resume();
+                }
+            } catch(e) {}
         }
 
         // ---------------------------------------------------------------------------
@@ -543,6 +560,21 @@
         var Module = {
             preRun: [],
             postRun: [],
+            onRuntimeInitialized: function() {
+                // Mute the game until the user has logged in.
+                // SDL_mixer creates its AudioContext during init; suspend it immediately
+                // if we're still showing the auth overlay.
+                if (!_pinballToken) {
+                    var tryMute = function() {
+                        if (typeof SDL2 !== 'undefined' && SDL2.audioContext) {
+                            SDL2.audioContext.suspend();
+                        } else {
+                            setTimeout(tryMute, 100);
+                        }
+                    };
+                    tryMute();
+                }
+            },
             print: (function () {
                 return function (text) {
                     if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
@@ -783,25 +815,6 @@
             };
         })();
 
-        // SDL2/Emscripten registers keydown/keyup/keypress handlers on `document`
-        // and calls preventDefault() on ALL of them, which swallows keystrokes typed
-        // into <input> or <textarea> elements (e.g. the auth form).
-        // Wrap addEventListener BEFORE the Emscripten JS loads so SDL's keyboard
-        // handlers bail out when the event target is a text input.
-        (function() {
-            var _add = document.addEventListener.bind(document);
-            document.addEventListener = function(type, fn, opts) {
-                if (type === 'keydown' || type === 'keyup' || type === 'keypress') {
-                    var wrapped = function(e) {
-                        var tag = e.target && e.target.tagName;
-                        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-                        return fn.call(this, e);
-                    };
-                    return _add(type, wrapped, opts);
-                }
-                return _add(type, fn, opts);
-            };
-        })();
     </script>
     {{{ SCRIPT }}}
 </body>
