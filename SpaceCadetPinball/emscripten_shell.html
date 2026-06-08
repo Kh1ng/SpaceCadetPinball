@@ -136,7 +136,7 @@
             margin-left: auto;
             margin-right: auto;
             display: block;
-            max-width: 900px;
+            max-width: 1400px;
         }
 
         .window.active {
@@ -649,6 +649,8 @@
 
             // Track active keys so we can release them
             var activeKeys = {}; // touchId -> key fired
+            // Pending single-touch timers (debounce: let a 2nd finger arrive before committing flipper)
+            var pendingSingle = {}; // touchId -> { touch, timer }
 
             // Resume AudioContext on first touch (mobile browsers suspend it until a gesture)
             document.addEventListener('touchstart', function resumeAudio() {
@@ -678,34 +680,50 @@
                 }
             }
 
+            function commitSingleTouch(t) {
+                delete pendingSingle[t.identifier];
+                var k = zoneKey(t);
+                if (k && !activeKeys[t.identifier]) {
+                    fireKey('keydown', k.key, k.code, k.keyCode);
+                    activeKeys[t.identifier] = k;
+                }
+            }
+
+            function cancelPending() {
+                for (var id in pendingSingle) {
+                    clearTimeout(pendingSingle[id].timer);
+                    delete pendingSingle[id];
+                }
+            }
+
             function handleTouchStart(e) {
                 e.preventDefault();
-                var touches = e.touches;
-                var count = touches.length;
+                var count = e.touches.length;
+
+                if (count >= 3) {
+                    cancelPending();
+                    releaseAll();
+                    fireKey('keydown', 'F3', 'F3', 114);
+                    activeKeys['__f3'] = { key: 'F3', code: 'F3', keyCode: 114 };
+                    return;
+                }
 
                 if (count === 2) {
-                    // Release any single-finger keys first
+                    // Cancel any flipper that hasn't fired yet
+                    cancelPending();
                     releaseAll();
-                    fireKey('keydown', ' ', 'Space');
-                    activeKeys['__space'] = { key: ' ', code: 'Space' };
+                    fireKey('keydown', ' ', 'Space', 32);
+                    activeKeys['__space'] = { key: ' ', code: 'Space', keyCode: 32 };
                     return;
                 }
-                if (count === 3) {
-                    releaseAll();
-                    fireKey('keydown', 'F3', 'F3');
-                    activeKeys['__f3'] = { key: 'F3', code: 'F3' };
-                    return;
-                }
-                if (count > 3) return;
 
-                // Single touch — only handle the new touch (changedTouches)
+                // Single touch: delay 60 ms so a near-simultaneous second finger
+                // can cancel this and fire Space (launch) instead.
                 for (var i = 0; i < e.changedTouches.length; i++) {
-                    var t = e.changedTouches[i];
-                    var k = zoneKey(t);
-                    if (k && !activeKeys[t.identifier]) {
-                        fireKey('keydown', k.key, k.code, k.keyCode);
-                        activeKeys[t.identifier] = k;
-                    }
+                    (function(t) {
+                        var timer = setTimeout(function() { commitSingleTouch(t); }, 60);
+                        pendingSingle[t.identifier] = { touch: t, timer: timer };
+                    })(e.changedTouches[i]);
                 }
             }
 
@@ -713,21 +731,30 @@
                 e.preventDefault();
                 var count = e.touches.length;
 
+                // Cancel pending single touches that were lifted before the timer fired
+                for (var i = 0; i < e.changedTouches.length; i++) {
+                    var id = e.changedTouches[i].identifier;
+                    if (pendingSingle[id]) {
+                        clearTimeout(pendingSingle[id].timer);
+                        delete pendingSingle[id];
+                    }
+                }
+
                 // Release multi-finger virtual keys when finger count drops
                 if (activeKeys['__space'] && count < 2) {
-                    fireKey('keyup', ' ', 'Space');
+                    fireKey('keyup', ' ', 'Space', 32);
                     delete activeKeys['__space'];
                 }
                 if (activeKeys['__f3'] && count < 3) {
-                    fireKey('keyup', 'F3', 'F3');
+                    fireKey('keyup', 'F3', 'F3', 114);
                     delete activeKeys['__f3'];
                 }
 
                 for (var i = 0; i < e.changedTouches.length; i++) {
-                    var id = e.changedTouches[i].identifier;
-                    if (activeKeys[id]) {
-                        fireKey('keyup', activeKeys[id].key, activeKeys[id].code, activeKeys[id].keyCode);
-                        delete activeKeys[id];
+                    var id2 = e.changedTouches[i].identifier;
+                    if (activeKeys[id2]) {
+                        fireKey('keyup', activeKeys[id2].key, activeKeys[id2].code, activeKeys[id2].keyCode);
+                        delete activeKeys[id2];
                     }
                 }
             }

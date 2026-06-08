@@ -62,16 +62,11 @@ void Sound::PlaySound(Mix_Chunk* wavePtr, int time, TPinballComponent* soundSour
 		{
 			Channels[channel].TimeStamp = time;
 #ifndef __EMSCRIPTEN__
-			// Mix_SetPosition doesn't work reliably in SDL_mixer's Emscripten port
-			// (sounds default to left channel only). Skip positional audio in WASM builds.
+			// Positional audio: skip in WASM (Mix_SetPosition broken in SDL_mixer port).
+			// On desktop use Mix_SetPanning for simple L/R pan from the source X position.
+			// soundPos.X is in [0,1]: 0 = left edge of table, 1 = right edge.
 			if (options::Options.SoundStereo)
 			{
-				// Positional audio uses collision grid 2D coordinates normalized to [0, 1]
-				// Point (0, 0) is bottom left table corner; point (1, 1) is top right table corner.
-				// Z is defined as: 0 at table level, positive axis goes up from table surface.
-
-				// Get the source sound position.
-				// Sound without position are assumed to be at the center top of the table.
 				vector3 soundPos{};
 				if (soundSource)
 				{
@@ -84,35 +79,9 @@ void Sound::PlaySound(Mix_Chunk* wavePtr, int time, TPinballComponent* soundSour
 				}
 				Channels[channel].Position = soundPos;
 
-				// Listener is positioned at the bottom center of the table,
-				// at 0.5 height, so roughly a table half - length.
-				vector3 playerPos = {0.5f, 0.0f, 0.5f};
-				auto soundDir = maths::vector_sub(soundPos, playerPos);
-
-				// Find sound angle from positive Y axis in clockwise direction with atan2
-				// Remap atan2 output from (-Pi, Pi] to [0, 2 * Pi)
-				auto angle = fmodf(atan2(soundDir.X, soundDir.Y) + Pi * 2, Pi * 2);
-				auto angleDeg = angle * 180.0f / Pi;
-				auto angleSdl = static_cast<Sint16>(angleDeg);
-
-				// Distance from listener to the sound position is roughly in the [0, ~1.22] range.
-				// Remap to [0, 122] by multiplying by 100 and cast to an integer.
-				auto distance = static_cast<Uint8>(100.0f * maths::magnitude(soundDir));
-
-				// Mix_SetPosition expects an angle in (Sint16)degrees, where
-				// angle 0 is due north, and rotates clockwise as the value increases.
-				// Mix_SetPosition expects a (Uint8)distance from 0 (near) to 255 (far).
-				Mix_SetPosition(channel, angleSdl, distance);
-
-				// Output position of each sound emitted so we can verify
-				// the sanity of the implementation.
-				/*printf("X: %3.3f Y: %3.3f Angle: %3.3f Distance: %3d, Object: %s\n",
-				       soundPos.X,
-				       soundPos.Y,
-				       angleDeg,
-				       distance,
-				       info
-				);*/
+				auto rightVol = static_cast<Uint8>(soundPos.X * 254.0f);
+				auto leftVol  = static_cast<Uint8>(254.0f - rightVol);
+				Mix_SetPanning(channel, leftVol, rightVol);
 			}
 #endif // __EMSCRIPTEN__
 		}
