@@ -201,10 +201,14 @@
             inset: 0;
             background: var(--Background);
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: center;
+            padding-top: 60px;
             z-index: 100;
             pointer-events: all;
+            /* Allow the overlay to scroll when the soft keyboard pushes content up */
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         #auth-overlay.hidden {
@@ -306,6 +310,13 @@
             }
             .window {
                 max-width: 100%;
+            }
+            /* iOS Safari zooms in on inputs smaller than 16px even with
+               user-scalable=no, causing the viewport to scroll out from
+               under the fixed overlay. Force 16px to suppress that. */
+            #auth-box input[type=text],
+            #auth-box input[type=password] {
+                font-size: 16px;
             }
         }
 
