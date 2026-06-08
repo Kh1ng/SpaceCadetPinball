@@ -153,158 +153,89 @@ void high_score::RenderHighScoreDialog()
 	bool unused_open = true, textBoxSubmit = false;
 	if (ImGui::BeginPopupModal(pb::get_rc_string(Msg::HIGHSCORES_Caption), &unused_open, ImGuiWindowFlags_AlwaysAutoResize))
 	{
-		if (ImGui::BeginTabBar("hs_tabs"))
+		// ----------------------------------------------------------------
+		// New high score name entry
+		// ----------------------------------------------------------------
+		if (dlg_enter_name)
 		{
-			// ----------------------------------------------------------------
-			// Local tab (original behaviour)
-			// ----------------------------------------------------------------
-			if (ImGui::BeginTabItem("Local"))
+			ImGui::TextUnformatted("New High Score! Enter your name:");
+			ImGui::PushItemWidth(260);
+			if (ImGui::IsWindowAppearing())
+				ImGui::SetKeyboardFocusHere(0);
+			if (ImGui::InputText("##name", DlgData.Entry.Name, IM_ARRAYSIZE(DlgData.Entry.Name),
+				ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll))
 			{
-				if (ImGui::BeginTable("table1", 3, ImGuiTableFlags_Borders))
-				{
-					char buf[36];
-					ImGui::TableSetupColumn(pb::get_rc_string(Msg::HIGHSCORES_Rank));
-					ImGui::TableSetupColumn(pb::get_rc_string(Msg::HIGHSCORES_Name));
-					ImGui::TableSetupColumn(pb::get_rc_string(Msg::HIGHSCORES_Score));
-					ImGui::TableHeadersRow();
-
-					for (int offset = 0, row = 0; row < 5; row++)
-					{
-						ImGui::TableNextRow();
-						ImGui::TableNextColumn();
-						snprintf(buf, sizeof buf, "%d", row + 1);
-						ImGui::TextUnformatted(buf);
-
-						auto currentRow = &highscore_table[row + offset];
-						auto score = currentRow->Score;
-						ImGui::TableNextColumn();
-						if (dlg_enter_name && DlgData.Position == row)
-						{
-							offset = -1;
-							score = DlgData.Entry.Score;
-							ImGui::PushItemWidth(200);
-
-							if (ImGui::IsWindowAppearing())
-							{
-								ImGui::SetKeyboardFocusHere(0);
-							}
-							if (ImGui::InputText("", DlgData.Entry.Name, IM_ARRAYSIZE(DlgData.Entry.Name),
-								ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll))
-							{
-								textBoxSubmit = true;
-							}
-						}
-						else
-						{
-							ImGui::TextUnformatted(currentRow->Name);
-						}
-
-						ImGui::TableNextColumn();
-						score::string_format(score, buf);
-						ImGui::TextUnformatted(buf);
-					}
-					ImGui::EndTable();
-				}
-
-				if (ImGui::Button(pb::get_rc_string(Msg::GenericOk)) || textBoxSubmit)
-				{
-					if (dlg_enter_name)
-					{
-						place_new_score_into(DlgData);
-						leaderboard::submit(DlgData.Entry.Name, DlgData.Entry.Score);
-					}
-					ImGui::CloseCurrentPopup();
-				}
-
-				ImGui::SameLine();
-				if (ImGui::Button(pb::get_rc_string(Msg::GenericCancel)))
-					ImGui::CloseCurrentPopup();
-
-				ImGui::SameLine();
-				if (ImGui::Button(pb::get_rc_string(Msg::HIGHSCORES_Clear)))
-					ImGui::OpenPopup("Confirm");
-				if (ImGui::BeginPopupModal("Confirm", nullptr, ImGuiWindowFlags_MenuBar))
-				{
-					ImGui::TextUnformatted(pb::get_rc_string(Msg::STRING141));
-					if (ImGui::Button(pb::get_rc_string(Msg::GenericOk), ImVec2(120, 0)))
-					{
-						clear_table();
-						ImGui::CloseCurrentPopup();
-					}
-					ImGui::SetItemDefaultFocus();
-					ImGui::SameLine();
-					if (ImGui::Button(pb::get_rc_string(Msg::GenericCancel), ImVec2(120, 0)))
-					{
-						ImGui::CloseCurrentPopup();
-					}
-					ImGui::EndPopup();
-				}
-
-				ImGui::EndTabItem();
+				textBoxSubmit = true;
 			}
-
-			// ----------------------------------------------------------------
-			// Global tab
-			// ----------------------------------------------------------------
-			if (ImGui::BeginTabItem("Global"))
-			{
-				if (leaderboard::IsFetching)
-				{
-					ImGui::TextUnformatted("Fetching scores...");
-				}
-				else if (leaderboard::FetchFailed)
-				{
-					ImGui::TextColored(ImVec4(1, 0.4f, 0.4f, 1), "Failed to load. Check connection.");
-					ImGui::SameLine();
-					if (ImGui::SmallButton("Retry"))
-						leaderboard::fetch_async();
-				}
-				else if (leaderboard::Entries.empty())
-				{
-					ImGui::TextUnformatted("No scores yet.");
-					ImGui::SameLine();
-					if (ImGui::SmallButton("Refresh"))
-						leaderboard::fetch_async();
-				}
-				else
-				{
-					if (ImGui::BeginTable("global_table", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_ScrollY, ImVec2(0, 300)))
-					{
-						ImGui::TableSetupScrollFreeze(0, 1);
-						ImGui::TableSetupColumn(pb::get_rc_string(Msg::HIGHSCORES_Rank), ImGuiTableColumnFlags_WidthFixed, 40);
-						ImGui::TableSetupColumn(pb::get_rc_string(Msg::HIGHSCORES_Name));
-						ImGui::TableSetupColumn(pb::get_rc_string(Msg::HIGHSCORES_Score), ImGuiTableColumnFlags_WidthFixed, 100);
-						ImGui::TableHeadersRow();
-
-						char buf[36];
-						int rank = 1;
-						for (auto& entry : leaderboard::Entries)
-						{
-							ImGui::TableNextRow();
-							ImGui::TableNextColumn();
-							snprintf(buf, sizeof buf, "%d", rank++);
-							ImGui::TextUnformatted(buf);
-							ImGui::TableNextColumn();
-							ImGui::TextUnformatted(entry.Name.c_str());
-							ImGui::TableNextColumn();
-							score::string_format(entry.Score, buf);
-							ImGui::TextUnformatted(buf);
-						}
-						ImGui::EndTable();
-					}
-					ImGui::SameLine();
-					if (ImGui::SmallButton("Refresh"))
-						leaderboard::fetch_async();
-				}
-
-				if (ImGui::Button(pb::get_rc_string(Msg::GenericOk)))
-					ImGui::CloseCurrentPopup();
-
-				ImGui::EndTabItem();
-			}
-
-			ImGui::EndTabBar();
+			ImGui::PopItemWidth();
+			ImGui::Separator();
 		}
+
+		// ----------------------------------------------------------------
+		// Global leaderboard (no tabs)
+		// ----------------------------------------------------------------
+		if (leaderboard::IsFetching)
+		{
+			ImGui::TextUnformatted("Fetching scores...");
+		}
+		else if (leaderboard::FetchFailed)
+		{
+			ImGui::TextColored(ImVec4(1, 0.4f, 0.4f, 1), "Failed to load. Check connection.");
+			ImGui::SameLine();
+			if (ImGui::SmallButton("Retry"))
+				leaderboard::fetch_async();
+		}
+		else if (leaderboard::Entries.empty())
+		{
+			ImGui::TextUnformatted("No scores yet.");
+			ImGui::SameLine();
+			if (ImGui::SmallButton("Refresh"))
+				leaderboard::fetch_async();
+		}
+		else
+		{
+			if (ImGui::BeginTable("global_table", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_ScrollY, ImVec2(0, 160)))
+			{
+				ImGui::TableSetupScrollFreeze(0, 1);
+				ImGui::TableSetupColumn(pb::get_rc_string(Msg::HIGHSCORES_Rank), ImGuiTableColumnFlags_WidthFixed, 40);
+				ImGui::TableSetupColumn(pb::get_rc_string(Msg::HIGHSCORES_Name));
+				ImGui::TableSetupColumn(pb::get_rc_string(Msg::HIGHSCORES_Score), ImGuiTableColumnFlags_WidthFixed, 100);
+				ImGui::TableHeadersRow();
+
+				char buf[36];
+				int rank = 1;
+				for (auto& entry : leaderboard::Entries)
+				{
+					ImGui::TableNextRow();
+					ImGui::TableNextColumn();
+					snprintf(buf, sizeof buf, "%d", rank++);
+					ImGui::TextUnformatted(buf);
+					ImGui::TableNextColumn();
+					ImGui::TextUnformatted(entry.Name.c_str());
+					ImGui::TableNextColumn();
+					score::string_format(entry.Score, buf);
+					ImGui::TextUnformatted(buf);
+				}
+				ImGui::EndTable();
+			}
+			ImGui::SameLine();
+			if (ImGui::SmallButton("Refresh"))
+				leaderboard::fetch_async();
+		}
+
+		if (ImGui::Button(pb::get_rc_string(Msg::GenericOk)) || textBoxSubmit)
+		{
+			if (dlg_enter_name)
+			{
+				place_new_score_into(DlgData);
+				leaderboard::submit(DlgData.Entry.Name, DlgData.Entry.Score);
+			}
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::SameLine();
+		if (ImGui::Button(pb::get_rc_string(Msg::GenericCancel)))
+			ImGui::CloseCurrentPopup();
 
 		ImGui::EndPopup();
 

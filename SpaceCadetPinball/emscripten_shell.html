@@ -297,6 +297,71 @@
             cursor: pointer;
             text-decoration: underline;
         }
+
+        /* ---- Mobile touch overlay ---- */
+        #canvas-wrap {
+            position: relative;
+            display: block;
+            line-height: 0;
+        }
+
+        #touch-overlay {
+            display: none; /* shown via JS when touch device detected */
+            position: absolute;
+            inset: 0;
+            z-index: 5;
+            touch-action: none; /* prevent browser scroll/zoom on the canvas */
+        }
+
+        .touch-zone {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 50%;
+            /* Transparent — just captures touch events */
+        }
+
+        #touch-left  { left: 0; }
+        #touch-right { right: 0; left: 50%; }
+
+        #touch-help-btn {
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.45);
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            font-size: 14px;
+            cursor: pointer;
+            line-height: 28px;
+            text-align: center;
+            padding: 0;
+            z-index: 6;
+            display: none; /* shown with overlay */
+        }
+
+        #touch-help-popup {
+            display: none;
+            position: absolute;
+            bottom: 44px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.75);
+            color: #fff;
+            border-radius: 6px;
+            padding: 10px 14px;
+            font-size: 11px;
+            line-height: 1.6;
+            white-space: nowrap;
+            z-index: 7;
+            pointer-events: none;
+        }
+
+        #touch-help-popup.visible { display: block; }
     </style>
 </head>
 
@@ -337,8 +402,22 @@
         <div class="emscripten">
             <progress value="0" max="100" id="progress" hidden=1></progress>
         </div>
-        <canvas class="emscripten" id="canvas" style="display:none;" oncontextmenu="event.preventDefault()"
-            tabindex="-1"></canvas>
+        <div id="canvas-wrap">
+            <canvas class="emscripten" id="canvas" style="display:none;" oncontextmenu="event.preventDefault()"
+                tabindex="-1"></canvas>
+            <!-- Mobile touch zones -->
+            <div id="touch-overlay">
+                <div class="touch-zone" id="touch-left"></div>
+                <div class="touch-zone" id="touch-right"></div>
+            </div>
+            <button id="touch-help-btn" title="Touch controls help">?</button>
+            <div id="touch-help-popup">
+                👈 Left half — Left flipper<br>
+                👉 Right half — Right flipper<br>
+                ✌️ 2 fingers — Launch ball<br>
+                🤚 3 fingers — Pause / Resume
+            </div>
+        </div>
     </div>
 
     <script type='text/javascript'>
@@ -511,6 +590,117 @@
         // else: auth overlay is already visible; startGame() called after login
     </script>
     <script>
+        // ---------------------------------------------------------------------------
+        // Mobile touch controls
+        // ---------------------------------------------------------------------------
+        (function() {
+            var isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+            if (!isTouchDevice) return;
+
+            var overlay  = document.getElementById('touch-overlay');
+            var helpBtn  = document.getElementById('touch-help-btn');
+            var helpPop  = document.getElementById('touch-help-popup');
+            overlay.style.display = 'block';
+            helpBtn.style.display = 'block';
+
+            // Toggle help popup
+            helpBtn.addEventListener('touchstart', function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                helpPop.classList.toggle('visible');
+            }, { passive: false });
+            // Hide popup when touching game area
+            overlay.addEventListener('touchstart', function() {
+                helpPop.classList.remove('visible');
+            }, { passive: true });
+
+            // Key helpers
+            function fireKey(type, key, code) {
+                var evt = new KeyboardEvent(type, {
+                    key: key, code: code, keyCode: key.charCodeAt ? key.charCodeAt(0) : 0,
+                    bubbles: true, cancelable: true
+                });
+                document.dispatchEvent(evt);
+            }
+
+            // Track active keys so we can release them
+            var activeKeys = {}; // touchId -> key fired
+
+            // Determine which logical key a touch point maps to (ignore help-btn area)
+            function zoneKey(touch) {
+                var el = document.elementFromPoint(touch.clientX, touch.clientY);
+                if (!el) return null;
+                if (el.id === 'touch-left'  || el.closest('#touch-left'))  return { key: 'z',  code: 'KeyZ' };
+                if (el.id === 'touch-right' || el.closest('#touch-right')) return { key: '/',  code: 'Slash' };
+                return null;
+            }
+
+            function handleTouchStart(e) {
+                e.preventDefault();
+                var touches = e.touches;
+                var count = touches.length;
+
+                if (count === 2) {
+                    // Release any single-finger keys first
+                    releaseAll();
+                    fireKey('keydown', ' ', 'Space');
+                    activeKeys['__space'] = { key: ' ', code: 'Space' };
+                    return;
+                }
+                if (count === 3) {
+                    releaseAll();
+                    fireKey('keydown', 'F3', 'F3');
+                    activeKeys['__f3'] = { key: 'F3', code: 'F3' };
+                    return;
+                }
+                if (count > 3) return;
+
+                // Single touch — only handle the new touch (changedTouches)
+                for (var i = 0; i < e.changedTouches.length; i++) {
+                    var t = e.changedTouches[i];
+                    var k = zoneKey(t);
+                    if (k && !activeKeys[t.identifier]) {
+                        fireKey('keydown', k.key, k.code);
+                        activeKeys[t.identifier] = k;
+                    }
+                }
+            }
+
+            function handleTouchEnd(e) {
+                e.preventDefault();
+                var count = e.touches.length;
+
+                // Release multi-finger virtual keys when finger count drops
+                if (activeKeys['__space'] && count < 2) {
+                    fireKey('keyup', ' ', 'Space');
+                    delete activeKeys['__space'];
+                }
+                if (activeKeys['__f3'] && count < 3) {
+                    fireKey('keyup', 'F3', 'F3');
+                    delete activeKeys['__f3'];
+                }
+
+                for (var i = 0; i < e.changedTouches.length; i++) {
+                    var id = e.changedTouches[i].identifier;
+                    if (activeKeys[id]) {
+                        fireKey('keyup', activeKeys[id].key, activeKeys[id].code);
+                        delete activeKeys[id];
+                    }
+                }
+            }
+
+            function releaseAll() {
+                for (var id in activeKeys) {
+                    fireKey('keyup', activeKeys[id].key, activeKeys[id].code);
+                }
+                activeKeys = {};
+            }
+
+            overlay.addEventListener('touchstart', handleTouchStart, { passive: false });
+            overlay.addEventListener('touchend',   handleTouchEnd,   { passive: false });
+            overlay.addEventListener('touchcancel',handleTouchEnd,   { passive: false });
+        })();
+
         // SDL2+Emscripten calls emscripten_set_element_css_size() at initRuntime with
         // a canvas ID string read from WASM linear memory. In some builds the pointer
         // is garbage, which causes document.querySelector() to throw a DOMException and
